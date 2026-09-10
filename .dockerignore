@@ -1,0 +1,33 @@
+# Keep the build context small and the image reproducible.
+
+.git
+.gitignore
+.github
+.idea
+.vscode
+.venv
+venv
+env
+
+__pycache__
+**/__pycache__
+*.py[cod]
+.pytest_cache
+.ruff_cache
+.mypy_cache
+
+tests
+requirements-dev.txt
+
+# Local data and configuration never belong in an image.
+.env
+var
+data
+*.db
+*.sqlite3
+
+docker-compose*.yml
+Dockerfile
+Makefile
+*.md
+LICENSE

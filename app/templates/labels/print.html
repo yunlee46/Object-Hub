@@ -1,0 +1,98 @@
+{% extends "base.html" %}
+{% from "icons.html" import icon %}
+{% from "macros.html" import location_select, empty_state %}
+
+{% block title %}Print labels &middot; {{ app_name }}{% endblock %}
+
+{% block content %}
+<div class="page-head no-print">
+  <div>
+    <h1>Print labels</h1>
+    <p class="subtitle">
+      Each label carries an opaque QR code plus a human-readable name, so a sticker
+      stays valid however the item is renamed or moved.
+    </p>
+  </div>
+  <div class="btn-row">
+    <button class="btn btn-primary" type="button" onclick="window.print()">
+      {{ icon("print") }}Print this sheet
+    </button>
+  </div>
+</div>
+
+<form class="card no-print" method="get" action="/labels/print" data-label-picker>
+  <div class="card-body">
+    <div class="filters">
+      <div class="field">
+        <label for="location_id">Location</label>
+        {{ location_select(locations, selected_location_id, blank="Everywhere") }}
+      </div>
+      <label class="check">
+        <input type="checkbox" name="containers_only" value="1"
+               {{ 'checked' if containers_only }}>
+        Containers only
+      </label>
+      <button class="btn btn-primary" type="submit">{{ icon("search") }}Show labels</button>
+    </div>
+
+    {% if items %}
+      <details class="disclosure">
+        <summary>
+          {{ icon("check") }}Choose specific items
+          <span class="tiny subtle" data-label-count></span>
+        </summary>
+        <div class="disclosure-body">
+          <label class="check">
+            <input type="checkbox" data-label-all> Select all {{ items|length }}
+          </label>
+          <div class="form-grid">
+            {% for item in items %}
+              <label class="check">
+                <input type="checkbox" name="id" value="{{ item.id }}">
+                <span class="truncate">{{ item.name }}</span>
+              </label>
+            {% endfor %}
+          </div>
+          <div>
+            <button class="btn btn-sm btn-primary" type="submit">
+              Show only the selected labels
+            </button>
+          </div>
+        </div>
+      </details>
+    {% endif %}
+
+    <p class="hint">
+      Tip: print on A4 sticker sheets with three labels across. Browser margins are
+      preset for that; adjust the scale in the print dialog if your stock differs.
+    </p>
+  </div>
+</form>
+
+{% if items %}
+  <div class="label-sheet">
+    {% for item in items %}
+      <div class="label-tag">
+        <img src="/api/qr/{{ item.id }}.svg" alt="" width="64" height="64">
+        <div style="min-width: 0">
+          <div class="name">{{ item.name }}</div>
+          {% if item.can_contain_items %}
+            <div class="sub">Container</div>
+          {% endif %}
+          <div class="sub">{{ item.id|short_id }}</div>
+        </div>
+      </div>
+    {% endfor %}
+  </div>
+  <p class="tiny subtle no-print center">
+    {{ items|length }} label{{ "" if items|length == 1 else "s" }} on this sheet.
+  </p>
+{% else %}
+  <div class="card no-print">
+    {{ empty_state(
+      "No labels to print",
+      "Add some items first, or widen the filter above.",
+      "/items/new", "Add an item", "qr") }}
+  </div>
+{% endif %}
+{% endblock %}

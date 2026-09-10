@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="color-scheme" content="light dark">
+  <title>{% block title %}{{ app_name }}{% endblock %}</title>
+  <link rel="icon" href="/static/icon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/static/css/app.css">
+  <script>
+    /* Applied before first paint so a dark-theme user never sees a white flash. */
+    try {
+      var stored = localStorage.getItem("objecthub.theme");
+      var dark = stored ? stored === "dark"
+        : window.matchMedia("(prefers-color-scheme: dark)").matches;
+      document.documentElement.setAttribute("data-theme", dark ? "dark" : "light");
+    } catch (e) {}
+  </script>
+</head>
+<body>
+{% from "icons.html" import icon %}
+{% set nav_items = [
+  ("dashboard", "/", "grid", "Overview"),
+  ("items", "/items", "cube", "Items"),
+  ("locations", "/locations", "pin", "Locations"),
+  ("tags", "/tags", "tag", "Tags"),
+  ("labels", "/labels/print", "qr", "Labels"),
+] %}
+
+<div class="shell">
+  <aside class="sidebar">
+    <a class="brand" href="/">{{ icon("layers") }}<span>{{ app_name }}</span></a>
+
+    <nav class="nav" aria-label="Main">
+      {% for key, href, glyph, label in nav_items %}
+        <a class="nav-item" href="{{ href }}"
+           {% if nav == key %}aria-current="page"{% endif %}>
+          {{ icon(glyph) }}<span>{{ label }}</span>
+          {% if key == "items" and counts is defined and counts %}
+            <span class="count">{{ counts.items }}</span>
+          {% endif %}
+        </a>
+      {% endfor %}
+      <div class="nav-label">Quick actions</div>
+      <a class="nav-item" href="/scan" {% if nav == "scan" %}aria-current="page"{% endif %}>
+        {{ icon("scan") }}<span>Scan a label</span>
+      </a>
+      <a class="nav-item" href="/items/new">{{ icon("plus") }}<span>New item</span></a>
+    </nav>
+
+    <div class="sidebar-foot">
+      <button class="btn btn-ghost btn-sm" type="button" data-theme-toggle>
+        <span data-theme-icon="light">{{ icon("moon") }}</span>
+        <span data-theme-icon="dark" class="hidden">{{ icon("sun") }}</span>
+        <span>Theme</span>
+      </button>
+      <a href="/api/docs">JSON API</a>
+    </div>
+  </aside>
+
+  <div class="main">
+    <header class="topbar">
+      <a class="brand" href="/" aria-label="{{ app_name }} home">
+        {{ icon("layers") }}<span>{{ app_name }}</span>
+      </a>
+
+      <form class="search combo" action="/items" method="get" role="search" data-combo>
+        {{ icon("search") }}
+        <label class="sr-only" for="global-search">Search items</label>
+        <input id="global-search" type="search" name="q" placeholder="Search items&hellip;"
+               value="{{ query.text if query is defined and query else '' }}"
+               autocomplete="off" data-search-input>
+        <div class="combo-list" data-combo-list></div>
+      </form>
+
+      <a class="btn btn-ghost btn-icon" href="/scan" aria-label="Scan a label"
+         title="Scan a label">{{ icon("scan") }}</a>
+      <button class="btn btn-ghost btn-icon no-print" type="button" data-theme-toggle
+              aria-label="Switch theme">
+        <span data-theme-icon="light">{{ icon("moon") }}</span>
+        <span data-theme-icon="dark" class="hidden">{{ icon("sun") }}</span>
+      </button>
+      <a class="btn btn-primary" href="/items/new">{{ icon("plus") }}<span>New item</span></a>
+    </header>
+
+    <main class="content">
+      {% if flash %}
+        {% set kinds = {"success": "check", "info": "info", "warning": "warning", "error": "alert"} %}
+        <div class="flash flash-{{ flash.kind }}" role="status">
+          {{ icon(kinds.get(flash.kind, "info")) }}
+          <span>{{ flash.message }}</span>
+          <button class="flash-dismiss" type="button" data-dismiss aria-label="Dismiss">&times;</button>
+        </div>
+      {% endif %}
+
+      {% block content %}{% endblock %}
+    </main>
+
+    <nav class="mobile-nav" aria-label="Main">
+      {% for key, href, glyph, label in nav_items[:3] %}
+        <a href="{{ href }}" {% if nav == key %}aria-current="page"{% endif %}>
+          {{ icon(glyph) }}<span>{{ label }}</span>
+        </a>
+      {% endfor %}
+      <a href="/scan" {% if nav == "scan" %}aria-current="page"{% endif %}>
+        {{ icon("scan") }}<span>Scan</span>
+      </a>
+      <a href="/items/new">{{ icon("plus") }}<span>Add</span></a>
+    </nav>
+  </div>
+</div>
+
+<script src="/static/js/app.js"></script>
+{% block scripts %}{% endblock %}
+</body>
+</html>

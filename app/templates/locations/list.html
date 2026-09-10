@@ -1,0 +1,130 @@
+{% extends "base.html" %}
+{% from "icons.html" import icon %}
+{% from "macros.html" import location_select, empty_state %}
+
+{% block title %}Locations &middot; {{ app_name }}{% endblock %}
+
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>Locations</h1>
+    <p class="subtitle">
+      The physical places things live. Nest them however your home is laid out:
+      a house holds rooms, a room holds shelves.
+    </p>
+  </div>
+</div>
+
+<div class="split">
+  <div class="card">
+    <div class="card-head">
+      <h2>Your places <span class="badge badge-neutral">{{ locations|length }}</span></h2>
+    </div>
+
+    {% if locations %}
+      <div class="row-list">
+        {% for location, depth in locations %}
+          <div class="row">
+            <div class="row-main">
+              <div class="row-title inline">
+                {% if depth %}
+                  <span class="twig">{{ "&nbsp;&nbsp;&nbsp;"|safe * depth }}&#9492;&#9472;</span>
+                {% endif %}
+                {{ icon("pin") }}
+                <a href="/items?location_id={{ location.id }}">{{ location.name }}</a>
+                <span class="badge badge-neutral">
+                  {{ location_counts.get(location.id, 0) }} here
+                </span>
+              </div>
+              {% if location.notes %}
+                <div class="tiny muted">{{ location.notes }}</div>
+              {% endif %}
+            </div>
+
+            <div class="row-actions">
+              <a class="btn btn-sm btn-ghost" href="/items/new?location_id={{ location.id }}"
+                 title="Add an item here">{{ icon("plus") }}</a>
+              <a class="btn btn-sm btn-ghost" href="/labels/print?location_id={{ location.id }}"
+                 title="Print labels for this location">{{ icon("print") }}</a>
+            </div>
+          </div>
+
+          <details class="disclosure" style="border-radius: 0; border-left: 0; border-right: 0">
+            <summary style="padding: var(--s-2) var(--s-4); font-weight: 500">
+              {{ icon("pencil") }}Edit {{ location.name }}
+            </summary>
+            <div class="disclosure-body">
+              <form method="post" action="/locations/{{ location.id }}" class="form-grid">
+                <div class="field">
+                  <label for="name-{{ location.id }}">Name</label>
+                  <input id="name-{{ location.id }}" type="text" name="name" required
+                         maxlength="200" value="{{ location.name }}">
+                </div>
+                <div class="field">
+                  <label for="parent-{{ location.id }}">Inside</label>
+                  <select id="parent-{{ location.id }}" name="parent_id">
+                    <option value="">Top level</option>
+                    {% for candidate, candidate_depth in locations %}
+                      {% if candidate.id != location.id %}
+                        <option value="{{ candidate.id }}"
+                                {{ 'selected' if location.parent_id == candidate.id }}>
+                          {{ "&nbsp;&nbsp;&nbsp;"|safe * candidate_depth }}{{ candidate.name }}
+                        </option>
+                      {% endif %}
+                    {% endfor %}
+                  </select>
+                </div>
+                <div class="field span-2">
+                  <label for="notes-{{ location.id }}">Notes</label>
+                  <input id="notes-{{ location.id }}" type="text" name="notes"
+                         value="{{ location.notes or '' }}"
+                         placeholder="How to find it, access notes, anything useful">
+                </div>
+                <div class="btn-row span-2">
+                  <button class="btn btn-primary btn-sm" type="submit">
+                    {{ icon("check") }}Save
+                  </button>
+                </div>
+              </form>
+
+              <form method="post" action="/locations/{{ location.id }}/delete"
+                    data-confirm="Delete {{ location.name }}? Items there keep existing, they just lose their location.">
+                <button class="btn btn-danger btn-sm" type="submit">
+                  {{ icon("trash") }}Delete location
+                </button>
+              </form>
+            </div>
+          </details>
+        {% endfor %}
+      </div>
+    {% else %}
+      {{ empty_state(
+        "No locations yet",
+        "Start with the big ones: House, Garage, Office. You can nest shelves and boxes inside them later.",
+        None, None, "pin") }}
+    {% endif %}
+  </div>
+
+  <aside class="card">
+    <div class="card-head"><h2>Add a location</h2></div>
+    <div class="card-body">
+      <form method="post" action="/locations" class="stack-sm">
+        <div class="field">
+          <label for="new-name">Name</label>
+          <input id="new-name" type="text" name="name" required maxlength="200"
+                 placeholder="Garage, Office shelf, Van&hellip;">
+        </div>
+        <div class="field">
+          <label for="location_id">Inside</label>
+          {{ location_select(locations, "", name="parent_id", blank="Top level") }}
+        </div>
+        <div class="field">
+          <label for="new-notes">Notes</label>
+          <input id="new-notes" type="text" name="notes" placeholder="Optional">
+        </div>
+        <button class="btn btn-primary" type="submit">{{ icon("plus") }}Add location</button>
+      </form>
+    </div>
+  </aside>
+</div>
+{% endblock %}

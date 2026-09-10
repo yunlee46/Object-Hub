@@ -1,0 +1,143 @@
+{% extends "base.html" %}
+{% from "icons.html" import icon %}
+{% from "macros.html" import item_card, tag_chip, empty_state %}
+
+{% block title %}Overview &middot; {{ app_name }}{% endblock %}
+
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>Overview</h1>
+    <p class="subtitle">Everything you are keeping track of, at a glance.</p>
+  </div>
+  <div class="btn-row">
+    <a class="btn" href="/scan">{{ icon("scan") }}Scan a label</a>
+    <a class="btn btn-primary" href="/items/new">{{ icon("plus") }}New item</a>
+  </div>
+</div>
+
+<div class="stats">
+  <a class="stat" href="/items">
+    <span class="value">{{ counts.items }}</span>
+    <span class="label">Active items</span>
+  </a>
+  <a class="stat" href="/items?containers_only=1">
+    <span class="value">{{ counts.containers }}</span>
+    <span class="label">Containers</span>
+  </a>
+  <a class="stat" href="/locations">
+    <span class="value">{{ counts.locations }}</span>
+    <span class="label">Locations</span>
+  </a>
+  <a class="stat" href="/items?unplaced_only=1">
+    <span class="value">{{ counts.unplaced }}</span>
+    <span class="label">Not placed yet</span>
+  </a>
+  <a class="stat" href="/items?archived=1">
+    <span class="value">{{ counts.archived }}</span>
+    <span class="label">Archived</span>
+  </a>
+</div>
+
+<div class="split">
+  <section class="stack">
+    <div class="card">
+      <div class="card-head">
+        <h2>Recently updated</h2>
+        <a class="btn btn-sm btn-ghost" href="/items">View all</a>
+      </div>
+      <div class="card-body">
+        {% if recent_items %}
+          <div class="item-grid">
+            {% for item in recent_items %}{{ item_card(item) }}{% endfor %}
+          </div>
+        {% else %}
+          {{ empty_state(
+            "Nothing tracked yet",
+            "Add your first item, or start by describing the places you store things.",
+            "/items/new", "Add an item") }}
+        {% endif %}
+      </div>
+    </div>
+
+    {% if tags %}
+      <div class="card">
+        <div class="card-head">
+          <h2>Tags</h2>
+          <a class="btn btn-sm btn-ghost" href="/tags">Manage</a>
+        </div>
+        <div class="card-body">
+          <div class="filter-chips">
+            {% for tag, total in tags %}
+              <a class="chip" href="/items?tag={{ tag.slug }}"
+                 style="{{ 'color: ' ~ tag.color if tag.color }}">
+                <span class="dot"></span>{{ tag.name }}
+                <span class="subtle">{{ total }}</span>
+              </a>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+    {% endif %}
+  </section>
+
+  <aside class="stack">
+    <div class="card">
+      <div class="card-head">
+        <h2>Locations</h2>
+        <a class="btn btn-sm btn-ghost" href="/locations">Manage</a>
+      </div>
+      <div class="card-body">
+        {% if locations %}
+          <ul class="stack-sm">
+            {% for location, depth in locations[:12] %}
+              <li>
+                <a class="tree-row" href="/items?location_id={{ location.id }}">
+                  {% if depth %}<span class="twig">{{ "&nbsp;&nbsp;"|safe * depth }}&#9492;</span>{% endif %}
+                  {{ icon("pin") }}
+                  <span class="grow truncate">{{ location.name }}</span>
+                  <span class="tiny subtle">{{ location_counts.get(location.id, 0) }}</span>
+                </a>
+              </li>
+            {% endfor %}
+          </ul>
+        {% else %}
+          <p class="small muted">
+            No locations yet. Add rooms, shelves, or vehicles so items have somewhere to live.
+          </p>
+          <a class="btn btn-sm" href="/locations">{{ icon("plus") }}Add a location</a>
+        {% endif %}
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-head"><h2>Latest movements</h2></div>
+      <div class="card-body">
+        {% if movements %}
+          <ul class="timeline">
+            {% for movement in movements %}
+              <li>
+                <span class="pip"></span>
+                <div class="grow">
+                  <a class="small" href="/items/{{ movement.item_id }}">
+                    {{ movement.item.name if movement.item else "Item" }}
+                  </a>
+                  <div class="tiny muted">
+                    {% if movement.from_label %}{{ movement.from_label }} &rarr; {% endif %}
+                    {{ movement.to_label or "nowhere in particular" }}
+                  </div>
+                  <div class="when" title="{{ movement.created_at|absolute_time }}">
+                    {{ movement.created_at|relative_time }}
+                  </div>
+                </div>
+              </li>
+            {% endfor %}
+          </ul>
+        {% else %}
+          <p class="small muted">Movements appear here as you place and move things.</p>
+        {% endif %}
+      </div>
+    </div>
+  </aside>
+</div>
+{% endblock %}

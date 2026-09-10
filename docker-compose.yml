@@ -1,0 +1,48 @@
+# Production stack for a NAS.
+#
+# Two services, because two are justified: the application and its database. No Redis,
+# no worker, no reverse proxy - add those only when a concrete requirement appears.
+#
+#   docker compose up -d --build
+#
+# Data lives on named volumes, so `docker compose down` (without -v) keeps everything.
+
+services:
+  db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-objecthub}
+      POSTGRES_USER: ${POSTGRES_USER:-objecthub}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-objecthub}
+      # Deterministic collation, so item ordering does not change with the host locale.
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=C"
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-objecthub} -d ${POSTGRES_DB:-objecthub}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+
+  app:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: >-
+        postgresql+psycopg://${POSTGRES_USER:-objecthub}:${POSTGRES_PASSWORD:-objecthub}@db:5432/${POSTGRES_DB:-objecthub}
+      DATA_DIR: /data
+      APP_NAME: ${APP_NAME:-Object Hub}
+      BASE_URL: ${BASE_URL:-}
+    volumes:
+      - photo-data:/data
+    ports:
+      - "${APP_PORT:-8080}:8000"
+
+volumes:
+  db-data:
+  photo-data:

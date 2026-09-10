@@ -1,0 +1,100 @@
+{% extends "base.html" %}
+{% from "icons.html" import icon %}
+{% from "macros.html" import location_select, container_select, tag_input %}
+
+{% set editing = item is not none %}
+
+{% block title %}{{ ("Edit " ~ item.name) if editing else "New item" }} &middot; {{ app_name }}{% endblock %}
+
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>{{ "Edit item" if editing else "New item" }}</h1>
+    <p class="subtitle">
+      {% if editing %}
+        Changing the container or location records a movement in the item history.
+      {% else %}
+        A permanent identifier and a QR label are created automatically.
+      {% endif %}
+    </p>
+  </div>
+  {% if editing %}
+    <a class="btn" href="/items/{{ item.id }}">Back to item</a>
+  {% endif %}
+</div>
+
+<form class="card" method="post" enctype="multipart/form-data"
+      action="{{ '/items/' ~ item.id if editing else '/items' }}">
+  <div class="card-body">
+    <div class="form-grid">
+      <div class="field span-2">
+        <label for="name">Name</label>
+        <input id="name" type="text" name="name" required maxlength="200" autofocus
+               value="{{ item.name if editing }}"
+               placeholder="Anker 65W charger, Kitchen step ladder, Box of cables&hellip;">
+      </div>
+
+      <div class="field span-2">
+        <label for="description">Description</label>
+        <textarea id="description" name="description" rows="3"
+                  placeholder="What it is, model numbers, anything you would search for later"
+                  >{{ item.description or "" if editing }}</textarea>
+      </div>
+
+      <div class="field">
+        <label for="parent_id">Inside container</label>
+        {{ container_select(containers, preset_parent_id) }}
+        <span class="hint">Only items marked as containers can hold other items.</span>
+      </div>
+
+      <div class="field">
+        <label for="location_id">Location</label>
+        {{ location_select(locations, preset_location_id) }}
+        <span class="hint">Leave empty to inherit the container location.</span>
+      </div>
+
+      <div class="field">
+        <label for="quantity">Quantity</label>
+        <input id="quantity" type="number" name="quantity" min="0" step="1"
+               value="{{ item.quantity if editing else 1 }}">
+      </div>
+
+      <div class="field">
+        <span class="label">Container</span>
+        <label class="check">
+          <input type="checkbox" name="can_contain_items" value="1"
+                 {{ 'checked' if editing and item.can_contain_items }}>
+          This item can contain other items
+        </label>
+        <span class="hint">Boxes, shelves, cabinets, suitcases, vehicles.</span>
+      </div>
+
+      <div class="span-2">
+        {{ tag_input(item.tags|map(attribute="name")|join(", ") if editing else "", all_tags) }}
+      </div>
+
+      <div class="field span-2">
+        <label for="notes">Notes</label>
+        <textarea id="notes" name="notes" rows="3"
+                  placeholder="Private notes: serial numbers, who borrowed it, condition"
+                  >{{ item.notes or "" if editing }}</textarea>
+      </div>
+
+      <div class="field span-2">
+        <label for="photos">Photos</label>
+        <input id="photos" type="file" name="photos" accept="image/*" multiple
+               capture="environment" data-preview="#photo-preview">
+        <div class="gallery" id="photo-preview"></div>
+        <span class="hint">Optional. The first photo becomes the primary image.</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="card-foot btn-row">
+    <button class="btn btn-primary" type="submit">
+      {{ icon("check") }}{{ "Save changes" if editing else "Create item" }}
+    </button>
+    <a class="btn btn-ghost" href="{{ '/items/' ~ item.id if editing else '/items' }}">Cancel</a>
+  </div>
+</form>
+{% endblock %}

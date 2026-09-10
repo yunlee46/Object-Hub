@@ -1,0 +1,324 @@
+{% extends "base.html" %}
+{% from "icons.html" import icon %}
+{% from "macros.html" import breadcrumb, tag_chip, item_row, location_select,
+                             container_select, empty_state %}
+
+{% block title %}{{ item.name }} &middot; {{ app_name }}{% endblock %}
+
+{% block content %}
+{{ breadcrumb(item) }}
+
+<div class="page-head">
+  <div style="min-width: 0">
+    <h1>{{ item.name }}</h1>
+    <p class="subtitle">
+      {% if item.quantity != 1 %}Quantity {{ item.quantity }} &middot; {% endif %}
+      Added {{ item.created_at|relative_time }} &middot;
+      updated {{ item.updated_at|relative_time }}
+    </p>
+    <div class="meta" style="margin-top: var(--s-2)">
+      {% if item.can_contain_items %}<span class="badge badge-container">Container</span>{% endif %}
+      {% if item.is_archived %}<span class="badge badge-archived">Archived</span>{% endif %}
+      {% for tag in item.tags %}{{ tag_chip(tag, "/items?tag=" ~ tag.slug) }}{% endfor %}
+    </div>
+  </div>
+
+  <div class="btn-row">
+    <a class="btn" href="/items/{{ item.id }}/edit">{{ icon("pencil") }}Edit</a>
+    <a class="btn" href="/labels/print?id={{ item.id }}">{{ icon("print") }}Label</a>
+    {% if item.is_archived %}
+      <form method="post" action="/items/{{ item.id }}/restore">
+        <button class="btn btn-primary" type="submit">{{ icon("restore") }}Restore</button>
+      </form>
+    {% else %}
+      <form method="post" action="/items/{{ item.id }}/archive"
+            data-confirm="Archive {{ item.name }}? Anything inside it is archived too.">
+        <button class="btn" type="submit">{{ icon("archive") }}Archive</button>
+      </form>
+    {% endif %}
+  </div>
+</div>
+
+<div class="split">
+  <section class="stack">
+    {% set primary = item.primary_photo %}
+    {% if primary %}
+      <div class="hero-photo">
+        <a href="/api/photos/{{ primary.id }}" target="_blank" rel="noopener">
+          <img src="/api/photos/{{ primary.id }}" alt="{{ item.name }}">
+        </a>
+      </div>
+    {% endif %}
+
+    {% if item.description or item.notes %}
+      <div class="card">
+        <div class="card-body">
+          {% if item.description %}
+            <div>
+              <div class="label">Description</div>
+              <p style="white-space: pre-wrap">{{ item.description }}</p>
+            </div>
+          {% endif %}
+          {% if item.notes %}
+            <div>
+              <div class="label">Notes</div>
+              <p class="small muted" style="white-space: pre-wrap">{{ item.notes }}</p>
+            </div>
+          {% endif %}
+        </div>
+      </div>
+    {% endif %}
+
+    {% if item.can_contain_items %}
+      <div class="card">
+        <div class="card-head">
+          <h2>Contents <span class="badge badge-neutral">{{ item.children|length }}</span></h2>
+          <a class="btn btn-sm" href="/items/new?parent_id={{ item.id }}">
+            {{ icon("plus") }}Add inside
+          </a>
+        </div>
+        {% if item.children %}
+          <div class="row-list">
+            {% for child in item.children %}{{ item_row(child, show_path=False) }}{% endfor %}
+          </div>
+          <div class="card-foot btn-row">
+            <a class="btn btn-sm" href="/items?parent_id={{ item.id }}">See as a list</a>
+            <a class="btn btn-sm" href="/labels/print?{% for child in item.children %}id={{ child.id }}&amp;{% endfor %}">
+              {{ icon("print") }}Print labels for contents
+            </a>
+          </div>
+        {% else %}
+          <div class="card-body">
+            <p class="small muted">
+              Nothing is inside {{ item.name }} yet. Add an item here, or move an existing
+              item into it from its own page.
+            </p>
+          </div>
+        {% endif %}
+      </div>
+    {% endif %}
+
+    <div class="card">
+      <div class="card-head">
+        <h2>Photos <span class="badge badge-neutral">{{ item.photos|length }}</span></h2>
+      </div>
+      <div class="card-body">
+        {% if item.photos %}
+          <div class="gallery">
+            {% for photo in item.photos %}
+              <div class="photo">
+                <a href="/api/photos/{{ photo.id }}" target="_blank" rel="noopener">
+                  <img src="/api/photos/{{ photo.id }}?thumb=true"
+                       alt="{{ photo.original_name or item.name }}" loading="lazy">
+                </a>
+                {% if photo.is_primary %}
+                  <span class="badge badge-container primary-flag">Primary</span>
+                {% endif %}
+                <div class="photo-tools">
+                  {% if not photo.is_primary %}
+                    <form method="post" action="/photos/{{ photo.id }}/primary">
+                      <button class="btn btn-sm btn-icon" type="submit" title="Make primary">
+                        {{ icon("star") }}
+                      </button>
+                    </form>
+                  {% endif %}
+                  <form method="post" action="/photos/{{ photo.id }}/delete"
+                        data-confirm="Delete this photo permanently?">
+                    <button class="btn btn-sm btn-icon" type="submit" title="Delete photo">
+                      {{ icon("trash") }}
+                    </button>
+                  </form>
+                </div>
+              </div>
+            {% endfor %}
+          </div>
+        {% endif %}
+
+        <form method="post" action="/items/{{ item.id }}/photos"
+              enctype="multipart/form-data" class="stack-sm">
+          <div class="field">
+            <label for="photos">Add photos</label>
+            <input id="photos" type="file" name="photos" accept="image/*" multiple
+                   capture="environment" data-preview="#photo-preview">
+            <span class="hint">Take a photo with your phone, or pick files. JPEG, PNG, WebP, GIF.</span>
+          </div>
+          <div class="gallery" id="photo-preview"></div>
+          <div>
+            <button class="btn btn-primary btn-sm" type="submit">{{ icon("image") }}Upload</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-head"><h2>History</h2></div>
+      <div class="card-body">
+        {% if item.movements %}
+          <ul class="timeline">
+            {% for movement in item.movements %}
+              <li>
+                <span class="pip"></span>
+                <div class="grow">
+                  <div class="small">
+                    {% if movement.from_label %}
+                      <span class="muted">{{ movement.from_label }}</span>
+                      <span class="subtle">&rarr;</span>
+                    {% endif %}
+                    <strong>{{ movement.to_label or "not placed" }}</strong>
+                  </div>
+                  {% if movement.note %}
+                    <div class="tiny muted">{{ movement.note }}</div>
+                  {% endif %}
+                  <div class="when" title="{{ movement.created_at|absolute_time }}">
+                    {{ movement.created_at|relative_time }}
+                  </div>
+                </div>
+              </li>
+            {% endfor %}
+          </ul>
+        {% else %}
+          <p class="small muted">No movements recorded yet.</p>
+        {% endif %}
+      </div>
+    </div>
+  </section>
+
+  <aside class="stack">
+    <div class="card">
+      <div class="card-head"><h2>Where it is</h2></div>
+      <div class="card-body">
+        <div class="stack-sm">
+          <div class="label">Container</div>
+          {% if item.parent %}
+            <a class="inline" href="/items/{{ item.parent.id }}">
+              {{ icon("box") }}{{ item.parent.path_label }}
+            </a>
+          {% else %}
+            <span class="small subtle">Not inside anything</span>
+          {% endif %}
+        </div>
+
+        <div class="stack-sm">
+          <div class="label">Location</div>
+          {% set place = item.effective_location %}
+          {% if place %}
+            <a class="inline" href="/items?location_id={{ place.id }}">
+              {{ icon("pin") }}{{ place.path_label }}
+            </a>
+            {% if not item.location_id %}
+              <span class="tiny subtle">Inherited from its container</span>
+            {% endif %}
+          {% else %}
+            <span class="small subtle">No location set</span>
+          {% endif %}
+        </div>
+
+        <form method="post" action="/items/{{ item.id }}/move" class="stack-sm">
+          <div class="field">
+            <label for="parent_id">Move into container</label>
+            {{ container_select(containers, item.parent_id or "") }}
+          </div>
+          <div class="field">
+            <label for="location_id">Or place at location</label>
+            {{ location_select(locations, item.location_id or "") }}
+          </div>
+          <div class="field">
+            <label for="note">Note</label>
+            <input id="note" type="text" name="note" maxlength="400"
+                   placeholder="Optional, kept in the history">
+          </div>
+          <button class="btn btn-primary" type="submit">{{ icon("move") }}Move</button>
+          <span class="hint">
+            Leaving both empty removes the item from its container and location.
+          </span>
+        </form>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-head"><h2>Labels</h2></div>
+      <div class="card-body">
+        <div class="stack-sm center">
+          <img src="/api/qr/{{ item.id }}.svg" alt="QR code for {{ item.name }}"
+               width="160" height="160" style="margin: 0 auto">
+          <div class="tiny subtle">Encodes {{ qr_payload(item.id) }}</div>
+          <a class="btn btn-sm" href="/labels/print?id={{ item.id }}">
+            {{ icon("print") }}Print this label
+          </a>
+        </div>
+
+        <ul class="stack-sm">
+          {% for label in item.labels %}
+            <li class="inline">
+              <span class="badge badge-neutral">{{ label.label_type }}</span>
+              <span class="code grow">{{ label.code }}</span>
+              {% if label.code != item.id %}
+                <form method="post" action="/labels/{{ label.id }}/delete"
+                      data-confirm="Unlink code {{ label.code }}?">
+                  <button class="btn btn-sm btn-icon btn-ghost" type="submit"
+                          title="Unlink">{{ icon("trash") }}</button>
+                </form>
+              {% endif %}
+            </li>
+          {% endfor %}
+        </ul>
+
+        <details class="disclosure">
+          <summary>{{ icon("qr") }}Link an existing barcode</summary>
+          <div class="disclosure-body">
+            <form method="post" action="/items/{{ item.id }}/labels" class="stack-sm">
+              <div class="field">
+                <label for="code">Code</label>
+                <input id="code" type="text" name="code" required maxlength="200"
+                       placeholder="Scan or type a manufacturer barcode" autocomplete="off">
+              </div>
+              <div class="field">
+                <label for="label_type">Type</label>
+                <select id="label_type" name="label_type">
+                  {% for kind in label_types %}
+                    <option value="{{ kind }}" {{ 'selected' if kind == 'manufacturer' }}>
+                      {{ kind }}
+                    </option>
+                  {% endfor %}
+                </select>
+              </div>
+              <button class="btn btn-sm btn-primary" type="submit">Link code</button>
+              <span class="hint">
+                Useful for products that already carry a barcode: scanning it finds this item.
+              </span>
+            </form>
+          </div>
+        </details>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-head"><h2>Identity</h2></div>
+      <div class="card-body stack-sm">
+        <div class="label">Permanent identifier</div>
+        <span class="code">{{ item.id }}</span>
+        <p class="tiny muted">
+          Assigned at creation and never changed, so printed labels keep working however
+          the item is renamed or moved.
+        </p>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-head"><h2>Danger zone</h2></div>
+      <div class="card-body">
+        <p class="small muted">
+          Archiving keeps the history and hides the item from searches. Deleting removes it
+          for good; anything inside it becomes unplaced rather than being deleted.
+        </p>
+        <form method="post" action="/items/{{ item.id }}/delete"
+              data-confirm="Permanently delete {{ item.name }}? This cannot be undone.">
+          <button class="btn btn-danger btn-sm" type="submit">
+            {{ icon("trash") }}Delete permanently
+          </button>
+        </form>
+      </div>
+    </div>
+  </aside>
+</div>
+{% endblock %}

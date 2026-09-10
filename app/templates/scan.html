@@ -1,0 +1,138 @@
+{% extends "base.html" %}
+{% from "icons.html" import icon %}
+{% from "macros.html" import item_row, container_select %}
+
+{% block title %}Scan &middot; {{ app_name }}{% endblock %}
+
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>Scan a label</h1>
+    <p class="subtitle">
+      Point the camera at a QR label or a product barcode. Any code you have linked
+      to an item opens that item straight away.
+    </p>
+  </div>
+</div>
+
+{% if unknown_code %}
+  <div class="flash flash-warning" role="status">
+    {{ icon("warning") }}
+    <span>
+      Nothing is linked to <span class="code">{{ unknown_code }}</span> yet.
+      Link it to an item below, or create a new item for it.
+    </span>
+  </div>
+{% endif %}
+
+<div class="split">
+  <section class="stack">
+    <div class="card">
+      <div class="card-body">
+        <div class="scanner hidden" data-scanner>
+          <video playsinline muted></video>
+          <div class="reticle"></div>
+          <div class="status" data-scan-status>Starting the camera&hellip;</div>
+        </div>
+
+        <div class="btn-row">
+          <button class="btn btn-primary" type="button" data-scan-start>
+            {{ icon("scan") }}Start camera
+          </button>
+          <button class="btn hidden" type="button" data-scan-stop>Stop camera</button>
+        </div>
+
+        <p class="hint" data-scan-hint>
+          Camera scanning uses the browser's built-in barcode reader, so nothing is
+          uploaded anywhere. It needs HTTPS or a localhost connection, and works best
+          in Chrome on Android.
+        </p>
+
+        <form method="post" action="/scan" class="stack-sm">
+          <div class="field">
+            <label for="scan-code">Or enter a code</label>
+            <input id="scan-code" type="text" name="code" required autocomplete="off"
+                   value="{{ unknown_code }}" data-scan-code
+                   placeholder="Paste a scanned code, or type an item identifier">
+            <span class="hint">
+              Accepts a bare code, a resolver path like {{ qr_payload("...") }}, or a full URL.
+            </span>
+          </div>
+          <div>
+            <button class="btn btn-primary" type="submit">{{ icon("search") }}Look up</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    {% if unknown_code and recent_items %}
+      <div class="card">
+        <div class="card-head">
+          <h2>Link this code to an existing item</h2>
+        </div>
+        <div class="card-body">
+          <p class="small muted">
+            Pick an item, and the code becomes another way to find it. Handy for
+            manufacturer barcodes already printed on a product.
+          </p>
+        </div>
+        <div class="row-list">
+          {% for candidate in recent_items %}
+            <div class="row">
+              <div class="row-main">
+                <div class="row-title truncate">{{ candidate.name }}</div>
+                <div class="tiny muted truncate">{{ candidate.path_label }}</div>
+              </div>
+              <form method="post" action="/items/{{ candidate.id }}/labels">
+                <input type="hidden" name="code" value="{{ unknown_code }}">
+                <input type="hidden" name="label_type" value="manufacturer">
+                <button class="btn btn-sm btn-primary" type="submit">Link</button>
+              </form>
+            </div>
+          {% endfor %}
+        </div>
+        <div class="card-foot">
+          <a class="btn btn-sm" href="/items">Browse all items to pick another</a>
+        </div>
+      </div>
+    {% endif %}
+  </section>
+
+  <aside class="stack">
+    {% if unknown_code %}
+      <div class="card">
+        <div class="card-head"><h2>Or create a new item</h2></div>
+        <div class="card-body">
+          <p class="small muted">
+            Creates the item with its own permanent identifier, then links
+            <span class="code">{{ unknown_code }}</span> to it as an extra label.
+          </p>
+          <a class="btn btn-primary" href="/items/new">{{ icon("plus") }}New item</a>
+          <p class="tiny subtle">
+            After creating it, use "Link an existing barcode" on the item page.
+          </p>
+        </div>
+      </div>
+    {% endif %}
+
+    <div class="card">
+      <div class="card-head"><h2>How labels work</h2></div>
+      <div class="card-body small muted">
+        <p>
+          Every item gets an opaque identifier when it is created. Its QR code encodes
+          only that identifier, never the name or the location.
+        </p>
+        <p>
+          That means a label printed once stays correct forever: rename the item, move it
+          to another room, put it in a different box, and the same sticker still resolves.
+        </p>
+        <a class="btn btn-sm" href="/labels/print">{{ icon("print") }}Print label sheets</a>
+      </div>
+    </div>
+  </aside>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="/static/js/scan.js"></script>
+{% endblock %}

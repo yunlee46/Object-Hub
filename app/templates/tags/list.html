@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% from "icons.html" import icon %}
+{% from "macros.html" import empty_state %}
+
+{% block title %}Tags &middot; {{ app_name }}{% endblock %}
+
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>Tags</h1>
+    <p class="subtitle">
+      Tags are created as you type them on an item. Rename one here and every item
+      carrying it follows.
+    </p>
+  </div>
+</div>
+
+<div class="card">
+  {% if tags %}
+    <div class="row-list">
+      {% for tag, total in tags %}
+        <div class="row">
+          <span class="chip" style="{{ 'color: ' ~ tag.color if tag.color }}">
+            <span class="dot"></span>{{ tag.name }}
+          </span>
+          <div class="row-main">
+            <a class="small" href="/items?tag={{ tag.slug }}">
+              {{ total }} item{{ "" if total == 1 else "s" }}
+            </a>
+            <span class="tiny subtle code">{{ tag.slug }}</span>
+          </div>
+          <div class="row-actions">
+            <form method="post" action="/tags/{{ tag.id }}" class="inline">
+              <label class="sr-only" for="tag-name-{{ tag.id }}">Name</label>
+              <input id="tag-name-{{ tag.id }}" type="text" name="name" value="{{ tag.name }}"
+                     maxlength="80" required style="width: 10rem">
+              <label class="sr-only" for="tag-color-{{ tag.id }}">Colour</label>
+              <input id="tag-color-{{ tag.id }}" type="color" name="color"
+                     value="{{ tag.color or '#4f7cff' }}" style="width: 3rem">
+              <button class="btn btn-sm" type="submit">{{ icon("check") }}Save</button>
+            </form>
+            <form method="post" action="/tags/{{ tag.id }}/delete"
+                  data-confirm="Delete the tag {{ tag.name }}? Items keep existing, they just lose the tag.">
+              <button class="btn btn-sm btn-icon btn-ghost" type="submit" title="Delete tag">
+                {{ icon("trash") }}
+              </button>
+            </form>
+          </div>
+        </div>
+      {% endfor %}
+    </div>
+  {% else %}
+    {{ empty_state(
+      "No tags yet",
+      "Add tags while creating or editing an item, for example 'fragile', 'electronics', or 'winter'.",
+      "/items/new", "Add an item", "tag") }}
+  {% endif %}
+</div>
+{% endblock %}

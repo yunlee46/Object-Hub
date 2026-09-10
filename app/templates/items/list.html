@@ -1,0 +1,138 @@
+{% extends "base.html" %}
+{% from "icons.html" import icon %}
+{% from "macros.html" import item_card, item_row, empty_state, pagination, location_select %}
+
+{% block title %}Items &middot; {{ app_name }}{% endblock %}
+
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>
+      {% if query.archived_only %}Archived items
+      {% elif parent %}Inside {{ parent.name }}
+      {% else %}Items{% endif %}
+    </h1>
+    <p class="subtitle">
+      {{ results.total }} item{{ "" if results.total == 1 else "s" }}
+      {%- if query.is_filtered %} matching your filters{% endif %}.
+    </p>
+  </div>
+  <div class="btn-row">
+    <a class="btn" href="/labels/print{{ '?location_id=' ~ query.location_id if query.location_id }}">
+      {{ icon("print") }}Print labels
+    </a>
+    <a class="btn btn-primary"
+       href="/items/new{% if parent %}?parent_id={{ parent.id }}{% elif query.location_id %}?location_id={{ query.location_id }}{% endif %}">
+      {{ icon("plus") }}New item
+    </a>
+  </div>
+</div>
+
+<form class="card" method="get" action="/items" data-autosubmit>
+  <div class="card-body">
+    <div class="filters">
+      <div class="field" style="flex: 2 1 16rem">
+        <label for="filter-q">Search</label>
+        <div class="search">
+          {{ icon("search") }}
+          <input id="filter-q" type="search" name="q" value="{{ query.text }}"
+                 placeholder="Name, description, notes, tag, or code" autocomplete="off">
+        </div>
+      </div>
+
+      <div class="field">
+        <label for="location_id">Location</label>
+        {{ location_select(locations, query.location_id or "", blank="Anywhere") }}
+      </div>
+
+      <div class="field" style="flex: 0 1 10rem">
+        <label for="sort">Sort by</label>
+        <select id="sort" name="sort">
+          {% for key, label in sorts.items() %}
+            <option value="{{ key }}" {{ 'selected' if query.sort == key }}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <button class="btn btn-primary" type="submit">Apply</button>
+    </div>
+
+    <div class="filter-chips">
+      <label class="check">
+        <input type="checkbox" name="containers_only" value="1"
+               {{ 'checked' if query.containers_only }}>
+        Containers only
+      </label>
+      <label class="check">
+        <input type="checkbox" name="unplaced_only" value="1"
+               {{ 'checked' if query.unplaced_only }}>
+        Not placed yet
+      </label>
+      <label class="check">
+        <input type="checkbox" name="archived" value="1" {{ 'checked' if query.archived_only }}>
+        Archived
+      </label>
+
+      {% if parent %}
+        <input type="hidden" name="parent_id" value="{{ parent.id }}">
+        <a class="chip" href="{{ query_with(request, parent_id=None) }}">
+          Inside {{ parent.name }} <span class="chip-remove">&times;</span>
+        </a>
+      {% endif %}
+
+      {% if query.tag_slugs %}
+        {% for slug in query.tag_slugs %}
+          <input type="hidden" name="tag" value="{{ slug }}">
+        {% endfor %}
+      {% endif %}
+
+      {% if query.is_filtered %}
+        <a class="btn btn-sm btn-ghost right" href="/items">Clear filters</a>
+      {% endif %}
+    </div>
+
+    {% if tags %}
+      <details class="disclosure">
+        <summary>{{ icon("tag") }}Filter by tag
+          {% if query.tag_slugs %}<span class="badge badge-neutral">{{ query.tag_slugs|length }}</span>{% endif %}
+        </summary>
+        <div class="disclosure-body">
+          <div class="filter-chips">
+            {% for tag, total in tags %}
+              {% set active = tag.slug in query.tag_slugs %}
+              {% set target = query.tag_slugs|reject("equalto", tag.slug)|list if active
+                              else query.tag_slugs + [tag.slug] %}
+              <a class="chip" href="{{ query_with(request, tag=target, page=None) }}"
+                 style="{{ 'color: ' ~ tag.color if tag.color }}">
+                {% if active %}{{ icon("check") }}{% else %}<span class="dot"></span>{% endif %}
+                {{ tag.name }} <span class="subtle">{{ total }}</span>
+              </a>
+            {% endfor %}
+          </div>
+        </div>
+      </details>
+    {% endif %}
+  </div>
+</form>
+
+{% if results.items %}
+  <div class="item-grid">
+    {% for item in results.items %}{{ item_card(item) }}{% endfor %}
+  </div>
+  {{ pagination(request, results) }}
+{% elif query.is_filtered %}
+  <div class="card">
+    {{ empty_state(
+      "Nothing matched",
+      "Try a shorter search, or clear the filters to see everything.",
+      "/items", "Clear filters", "search") }}
+  </div>
+{% else %}
+  <div class="card">
+    {{ empty_state(
+      "No items yet",
+      "Add the first thing you want to keep track of. You can print a QR label for it straight away.",
+      "/items/new", "Add an item") }}
+  </div>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,17 @@
+# Normalise line endings to LF in the working tree, not just in the repository.
+#
+# This matters concretely: the container entrypoint is a shell script, and a CRLF
+# checkout on Windows turns its shebang into "#!/bin/sh\r", which Linux reports as a
+# missing interpreter. Pinning LF keeps a Windows clone able to build the image.
+* text=auto eol=lf
+
+*.sh text eol=lf
+Dockerfile text eol=lf
+*.mako text eol=lf
+
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.webp binary
+*.ico binary

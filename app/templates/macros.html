@@ -1,0 +1,197 @@
+{# Shared components. Everything reusable lives here so pages stay declarative. #}
+{% from "icons.html" import icon %}
+
+
+{% macro tag_chip(tag, href=None) -%}
+  {%- set style = 'color: ' ~ tag.color if tag.color else '' -%}
+  {%- if href -%}
+    <a class="chip" href="{{ href }}" style="{{ style }}"><span class="dot"></span>{{ tag.name }}</a>
+  {%- else -%}
+    <span class="chip" style="{{ style }}"><span class="dot"></span>{{ tag.name }}</span>
+  {%- endif -%}
+{%- endmacro %}
+
+
+{% macro thumbnail(item, klass="thumb") -%}
+  <div class="{{ klass }}">
+    {% set photo = item.primary_photo %}
+    {% if photo %}
+      <img src="/api/photos/{{ photo.id }}?thumb=true" alt="{{ item.name }}" loading="lazy">
+    {% else %}
+      {{ icon("box") }}
+    {% endif %}
+  </div>
+{%- endmacro %}
+
+
+{% macro item_card(item) -%}
+  <a class="item-card {{ 'is-archived' if item.is_archived }}" href="/items/{{ item.id }}">
+    {{ thumbnail(item) }}
+    <div class="item-card-body">
+      <div class="item-card-title">
+        <span class="grow">{{ item.name }}</span>
+        {% if item.quantity != 1 %}<span class="qty">&times;{{ item.quantity }}</span>{% endif %}
+      </div>
+
+      <div class="meta">
+        {% if item.can_contain_items %}
+          <span class="badge badge-container">Container</span>
+        {% endif %}
+        {% if item.is_archived %}
+          <span class="badge badge-archived">Archived</span>
+        {% endif %}
+      </div>
+
+      {% if item.description %}
+        <div class="clamp-2">{{ item.description }}</div>
+      {% endif %}
+
+      <div class="meta right" style="margin-top: auto">
+        {% set place = item.effective_location %}
+        {% if item.parent %}
+          {{ icon("box") }}<span class="truncate">{{ item.parent.name }}</span>
+        {% elif place %}
+          {{ icon("pin") }}<span class="truncate">{{ place.path_label }}</span>
+        {% else %}
+          <span class="subtle">No location yet</span>
+        {% endif %}
+      </div>
+
+      {% if item.tags %}
+        <div class="meta">
+          {% for tag in item.tags[:3] %}{{ tag_chip(tag) }}{% endfor %}
+          {% if item.tags|length > 3 %}
+            <span class="tiny subtle">+{{ item.tags|length - 3 }}</span>
+          {% endif %}
+        </div>
+      {% endif %}
+    </div>
+  </a>
+{%- endmacro %}
+
+
+{% macro item_row(item, show_path=True) -%}
+  <a class="row" href="/items/{{ item.id }}">
+    {{ thumbnail(item, "thumb thumb-sm") }}
+    <div class="row-main">
+      <div class="row-title truncate">
+        {{ item.name }}
+        {% if item.quantity != 1 %}<span class="tiny muted">&times;{{ item.quantity }}</span>{% endif %}
+        {% if item.can_contain_items %}<span class="badge badge-container">Container</span>{% endif %}
+        {% if item.is_archived %}<span class="badge badge-archived">Archived</span>{% endif %}
+      </div>
+      <div class="meta">
+        {% if show_path and item.parent %}
+          {{ icon("box") }}<span class="truncate">{{ item.parent.path_label }}</span>
+        {% endif %}
+        {% set place = item.effective_location %}
+        {% if place %}
+          {{ icon("pin") }}<span class="truncate">{{ place.path_label }}</span>
+        {% endif %}
+        {% if not item.parent and not place %}
+          <span class="subtle">No location yet</span>
+        {% endif %}
+      </div>
+    </div>
+    <div class="row-actions tiny subtle nowrap">{{ item.updated_at|relative_time }}</div>
+  </a>
+{%- endmacro %}
+
+
+{% macro breadcrumb(item) -%}
+  <nav class="crumbs" aria-label="Containment path">
+    <a href="/items">All items</a>
+    {% set place = item.effective_location %}
+    {% if place %}
+      <span class="sep">{{ icon("chevron-right") }}</span>
+      <a href="/items?location_id={{ place.id }}">{{ place.path_label }}</a>
+    {% endif %}
+    {% for node in item.path %}
+      <span class="sep">{{ icon("chevron-right") }}</span>
+      {% if node.id == item.id %}
+        <span class="current">{{ node.name }}</span>
+      {% else %}
+        <a href="/items/{{ node.id }}">{{ node.name }}</a>
+      {% endif %}
+    {% endfor %}
+  </nav>
+{%- endmacro %}
+
+
+{# A location <select>, indented to show the hierarchy. `locations` is the
+   (location, depth) list produced by the location service. #}
+{% macro location_select(locations, selected="", name="location_id", blank="No location") -%}
+  <select name="{{ name }}" id="{{ name }}">
+    <option value="">{{ blank }}</option>
+    {% for location, depth in locations %}
+      <option value="{{ location.id }}" {{ 'selected' if selected == location.id }}>
+        {{ ("   " * depth)|safe }}{{ location.name }}
+      </option>
+    {% endfor %}
+  </select>
+{%- endmacro %}
+
+
+{% macro container_select(containers, selected="", name="parent_id", blank="Not inside anything") -%}
+  <select name="{{ name }}" id="{{ name }}">
+    <option value="">{{ blank }}</option>
+    {% for container in containers %}
+      <option value="{{ container.id }}" {{ 'selected' if selected == container.id }}>
+        {{ container.path_label }}
+      </option>
+    {% endfor %}
+  </select>
+{%- endmacro %}
+
+
+{% macro empty_state(title, message, action_href=None, action_label=None, glyph="box") -%}
+  <div class="empty">
+    {{ icon(glyph) }}
+    <h3>{{ title }}</h3>
+    <p class="small">{{ message }}</p>
+    {% if action_href %}
+      <a class="btn btn-primary" href="{{ action_href }}">{{ icon("plus") }}{{ action_label }}</a>
+    {% endif %}
+  </div>
+{%- endmacro %}
+
+
+{% macro pagination(request, results) -%}
+  {% if results.total %}
+    <div class="pagination">
+      <span>Showing {{ results.start }}&ndash;{{ results.end }} of {{ results.total }}</span>
+      {% if results.pages > 1 %}
+        <span class="btn-row">
+          <a class="btn btn-sm {{ 'hidden' if not results.has_prev }}"
+             href="{{ query_with(request, page=results.page - 1 if results.page > 2 else None) }}">
+            Previous
+          </a>
+          <span class="small nowrap">Page {{ results.page }} of {{ results.pages }}</span>
+          <a class="btn btn-sm {{ 'hidden' if not results.has_next }}"
+             href="{{ query_with(request, page=results.page + 1) }}">Next</a>
+        </span>
+      {% endif %}
+    </div>
+  {% endif %}
+{%- endmacro %}
+
+
+{% macro tag_input(value="", suggestions=[]) -%}
+  <div class="field" data-tag-input>
+    <label for="tag-entry">Tags</label>
+    <input type="hidden" name="tags" value="{{ value }}">
+    <input id="tag-entry" type="text" data-tag-entry autocomplete="off"
+           placeholder="Type a tag and press Enter">
+    <div class="filter-chips" data-tag-list></div>
+    {% if suggestions %}
+      <div class="filter-chips">
+        <span class="tiny subtle">Existing:</span>
+        {% for tag in suggestions %}
+          <button class="chip" type="button" data-tag-suggest="{{ tag.name }}"
+                  style="{{ 'color: ' ~ tag.color if tag.color }}">{{ tag.name }}</button>
+        {% endfor %}
+      </div>
+    {% endif %}
+    <span class="hint">Tags are created as you use them.</span>
+  </div>
+{%- endmacro %}

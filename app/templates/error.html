@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% from "icons.html" import icon %}
+
+{% block title %}{{ status_code }} &middot; {{ app_name }}{% endblock %}
+
+{% block content %}
+<div class="card">
+  <div class="empty">
+    {{ icon(("search" if status_code == 404 else "alert")) }}
+    <h3>
+      {% if status_code == 404 %}Not found
+      {% elif status_code == 409 %}That conflicts with something
+      {% elif status_code == 422 %}That will not work
+      {% else %}Something went wrong{% endif %}
+    </h3>
+    <p>{{ message }}</p>
+    <div class="btn-row">
+      <a class="btn" href="javascript:history.back()">Go back</a>
+      <a class="btn btn-primary" href="/">Back to overview</a>
+    </div>
+  </div>
+</div>
+{% endblock %}
